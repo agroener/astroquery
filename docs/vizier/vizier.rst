@@ -106,10 +106,10 @@ object, do just what you would do for a python dictionary:
 
 .. code-block:: python
 
-    >>> for table_name in result:
-            table = result[table_name]
-            # table is now an `astropy.table.Table` object
-            # some code to apply on table
+    >>> for table_name in result.keys():
+    ...     table = result[table_name]
+    ...     # table is now an `astropy.table.Table` object
+    ...     # some code to apply on table
 
 Query a region
 --------------
@@ -161,7 +161,9 @@ dimension.
     >>> from astroquery.vizier import Vizier
     >>> import astropy.units as u
     >>> import astropy.coordinates as coord
-    >>> result = Vizier.query_region(coord.ICRS(ra=299.590, dec=35.201, unit=(u.deg, u.deg)),
+    >>> result = Vizier.query_region(coord.SkyCoord(ra=299.590, dec=35.201,
+    ...                                             unit=(u.deg, u.deg),
+    ...                                             frame='icrs'),
     ...                         width="30m",
     ...                         catalog=["NOMAD", "UCAC"])
     >>> print(result)

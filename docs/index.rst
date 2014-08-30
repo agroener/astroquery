@@ -22,7 +22,13 @@ Check out the :doc:`gallery` for some nice examples.
 
 Installation
 ------------
-Astroquery must be installed from source:
+Astroquery can be pip installed:
+
+.. code-block:: bash
+
+    $ pip install astroquery
+
+or cloned and installed from source:
 
 .. code-block:: bash
 
@@ -30,22 +36,19 @@ Astroquery must be installed from source:
     $ cd astroquery
     $ python setup.py install
 
-pip install also works:
-
-.. code-block:: bash
-
-    $ pip install git+http://github.com/astropy/astroquery.git#egg=astroquery
-
 Requirements
 ````````````
 
+Astroquery works with Python 2.7 and 3.3 or later.
+
 The following packages are required for astroquery installation & use:
 
-* `numpy <http://www.numpy.org>`_
-* astropy_ (v>=0.3)
+* `numpy <http://www.numpy.org>`_ >= 1.6
+* astropy_ (v>=0.4)
 * `requests <http://docs.python-requests.org/en/latest/>`_
 * `keyring <https://pypi.python.org/pypi/keyring>`_ (required only for the
   `~astroquery.eso` module)
+* `Beautiful Soup <http://www.crummy.com/software/BeautifulSoup/>`_
 
 Using astroquery
 ----------------
@@ -72,15 +75,16 @@ All query tools allow coordinate-based queries:
     >>> from astropy import coordinates
     >>> import astropy.units as u
     >>> # works only for ICRS coordinates:
-    >>> c = coordinate.SkyFrame("05h35m17.3s -05h23m28s", frame='icrs')
+    >>> c = coordinates.SkyCoord("05h35m17.3s -05d23m28s", frame='icrs')
     >>> r = 5 * u.arcminute
     >>> result_table = Simbad.query_region(c, radius=r)
-    >>> result_table.pprint(show_unit=True)
-       MAIN_ID           RA           DEC      ... COO_QUAL COO_WAVELENGTH     COO_BIBCODE
-                      "h:m:s"       "d:m:s"    ...
-    -------------- ------------- ------------- ... -------- -------------- -------------------
-         HD  38875 05 34 59.7297 -80 51 09.082 ...        A              O 2007A&A...474..653V
-    TYC 9390-799-1 05 33 58.2222 -80 50 18.575 ...        B                1998A&A...335L..65H
+    >>> result_table.pprint(show_unit=True, max_width=80, max_lines=5)
+      MAIN_ID         RA          DEC      ... COO_WAVELENGTH     COO_BIBCODE
+                   "h:m:s"      "d:m:s"    ...
+    ------------ ------------ ------------ ... -------------- -------------------
+           M  42   05 35 17.3    -05 23 28 ...                1981MNRAS.194..693L
+             ...          ...          ... ...            ...                 ...
+    V* V2114 Ori 05 35 01.671 -05 26 36.30 ...              I 2003yCat.2246....0C
 
 
 For additional guidance and examples, read the documentation for the individual services below.
@@ -114,6 +118,8 @@ The following modules have been completed using a common API:
   nvas/nvas.rst
   gama/gama.rst
   eso/eso.rst
+  xmatch/xmatch.rst
+  atomic/atomic.rst
 
 These others are functional, but do not follow a common & consistent API:
 
@@ -157,6 +163,7 @@ for each source)
   simbad/simbad.rst
   ukidss/ukidss.rst
   vizier/vizier.rst
+  xmatch/xmatch.rst
 
 Archives
 --------
@@ -200,6 +207,7 @@ above categories.
 .. toctree::
   :maxdepth: 1
 
+  atomic/atomic.rst
   lamda/lamda.rst
   nist/nist.rst
   splatalogue/splatalogue.rst

@@ -9,15 +9,17 @@ Description: Access Sloan Digital Sky Survey database online.
 
 """
 
+from __future__ import print_function
+import io
 import numpy as np
 from astropy import units as u
 import astropy.coordinates as coord
 from astropy.table import Table
-import io
 from ..query import BaseQuery
-from . import SDSS_SERVER, SDSS_MAXQUERY, SDSS_TIMEOUT
+from . import conf
 from ..utils import commons, async_to_sync
 from ..utils.docstr_chompers import prepend_docstr_noreturns
+from ..exceptions import RemoteServiceError
 
 __all__ = ['SDSS', 'SDSSClass']
 
@@ -45,31 +47,36 @@ sdss_arcsec_per_pixel = 0.396
 @async_to_sync
 class SDSSClass(BaseQuery):
 
-    BASE_URL = SDSS_SERVER()
+    BASE_URL = conf.server
     SPECTRO_OPTICAL = BASE_URL
     IMAGING = BASE_URL + '/boss/photoObj/frames'
     TEMPLATES = 'http://www.sdss.org/dr7/algorithms/spectemplates/spDR2'
-    MAXQUERIES = SDSS_MAXQUERY()
+    MAXQUERIES = conf.maxqueries
     AVAILABLE_TEMPLATES = spec_templates
-    TIMEOUT = SDSS_TIMEOUT()
+    TIMEOUT = conf.timeout
 
     QUERY_URL = 'http://skyserver.sdss3.org/public/en/tools/search/x_sql.aspx'
 
     def query_region_async(self, coordinates, radius=u.degree / 1800.,
                            fields=None, spectro=False, timeout=TIMEOUT,
-                           get_query_payload=False):
+                           get_query_payload=False, photoobj_fields=None, specobj_fields=None):
         """
         Used to query a region around given coordinates. Equivalent to
         the object cross-ID from the web interface.
 
         Parameters
         ----------
-        coordinates : str or `astropy.coordinates` object
-            The target around which to search. It may be specified as a string
+        coordinates : str or `astropy.coordinates` object or list of coordinates
+            The target(s) around which to search. It may be specified as a string
             in which case it is resolved using online services or as the
             appropriate `astropy.coordinates` object. ICRS coordinates may also
             be entered as strings as specified in the `astropy.coordinates`
             module.
+
+            Example:
+            ra = np.array([220.064728084,220.064728467,220.06473483])
+            dec = np.array([0.870131920218,0.87013210119,0.870138329659])
+            coordinates = SkyCoord(ra, dec, frame='icrs', unit='deg')
         radius : str or `~astropy.units.Quantity` object, optional
             The string must be parsable by `~astropy.coordinates.Angle`. The
             appropriate `~astropy.units.Quantity` object from `astropy.units` may also be
@@ -86,6 +93,12 @@ class SDSSClass(BaseQuery):
         timeout : float, optional
             Time limit (in seconds) for establishing successful connection with
             remote server.  Defaults to `SDSSClass.TIMEOUT`.
+        photoobj_fields: float, optional
+            PhotoObj quantities to return. If photoobj_fields is None and
+            specobj_fields is None then the value of fields is used
+        specobj_fields: float, optional
+            SpecObj quantities to return. If photoobj_fields is None and
+            specobj_fields is None then the value of fields is used
 
         Examples
         --------
@@ -108,10 +121,10 @@ class SDSSClass(BaseQuery):
             The result of the query as a `~astropy.table.Table` object.
 
         """
-
         request_payload = self._args_to_payload(coordinates=coordinates,
                                                 radius=radius, fields=fields,
-                                                spectro=spectro)
+                                                spectro=spectro, photoobj_fields=photoobj_fields,
+                                                specobj_fields=specobj_fields)
         if get_query_payload:
             return request_payload
         r = commons.send_request(SDSS.QUERY_URL, request_payload, timeout,
@@ -323,8 +336,9 @@ class SDSSClass(BaseQuery):
         for row in matches:
             link = ('{base}/{instrument}/spectro/redux/{run2d}/spectra'
                     '/{plate:04d}/spec-{plate:04d}-{mjd}-{fiber:04d}.fits')
+            # _parse_result returns bytes for instrunments, requiring a decode
             link = link.format(base=SDSS.SPECTRO_OPTICAL,
-                               instrument=row['instrument'].lower(),
+                               instrument=row['instrument'].decode().lower(),
                                run2d=row['run2d'], plate=row['plate'],
                                fiber=row['fiberID'], mjd=row['mjd'])
 
@@ -355,7 +369,7 @@ class SDSSClass(BaseQuery):
     def get_images_async(self, coordinates=None, radius=u.degree / 1800.,
                          matches=None, run=None, rerun=301, camcol=None,
                          field=None, band='g', timeout=TIMEOUT,
-                         get_query_payload=False):
+                         get_query_payload=False, cache=True):
         """
         Download an image from SDSS.
 
@@ -399,6 +413,8 @@ class SDSSClass(BaseQuery):
         timeout : float, optional
             Time limit (in seconds) for establishing successful connection with
             remote server.  Defaults to `SDSSClass.TIMEOUT`.
+        cache : bool
+            Cache the images using astropy's caching system
 
         Returns
         -------
@@ -454,14 +470,15 @@ class SDSSClass(BaseQuery):
 
                 results.append(commons.FileContainer(link,
                                                      encoding='binary',
-                                                     remote_timeout=timeout))
+                                                     remote_timeout=timeout,
+                                                     cache=cache))
 
         return results
 
     @prepend_docstr_noreturns(get_images_async.__doc__)
     def get_images(self, coordinates=None, radius=u.degree / 1800.,
-                   matches=None, run=None, rerun=301, camcol=None,
-                   field=None, band='g', timeout=TIMEOUT):
+                   matches=None, run=None, rerun=301, camcol=None, field=None,
+                   band='g', timeout=TIMEOUT, cache=True):
         """
         Returns
         -------
@@ -558,14 +575,12 @@ class SDSSClass(BaseQuery):
 
         """
 
-        # genfromtxt requires bytes; need to check for 'encode' for py3 compat
-        bytecontent = (response.content.encode('ascii')
-                       if hasattr(response.content,'encode')
-                       else response.content)
-        arr = np.atleast_1d(np.genfromtxt(io.BytesIO(bytecontent),
-                            names=True, dtype=None, delimiter=b',',
-                            skip_header=1, # this may be a hack; it is necessary for tests to pass
-                            comments=b'#'))
+        if 'error_message' in io.BytesIO(response.content):
+            raise RemoteServiceError(response.content)
+        arr = np.atleast_1d(np.genfromtxt(io.BytesIO(response.content),
+                            names=True, dtype=None, delimiter=',',
+                            skip_header=1,  # this may be a hack; it is necessary for tests to pass
+                            comments='#'))
 
         if len(arr) == 0:
             return None
@@ -575,13 +590,13 @@ class SDSSClass(BaseQuery):
     def _args_to_payload(self, coordinates=None, radius=u.degree / 1800.,
                          fields=None, spectro=False,
                          plate=None, mjd=None, fiberID=None, run=None,
-                         rerun=301, camcol=None, field=None):
+                         rerun=301, camcol=None, field=None, photoobj_fields=None, specobj_fields=None):
         """
         Construct the SQL query from the arguments.
 
         Parameters
         ----------
-        coordinates : str or `astropy.coordinates` object
+        coordinates : str or `astropy.coordinates` object or list of coordinates
             The target around which to search. It may be specified as a string
             in which case it is resolved using online services or as the
             appropriate `astropy.coordinates` object. ICRS coordinates may also
@@ -619,6 +634,12 @@ class SDSSClass(BaseQuery):
             Output of one camera column of CCDs.
         field : integer, optional
             Part of a camcol of size 2048 by 1489 pixels.
+        photoobj_fields: float, optional
+            PhotoObj quantities to return. If photoobj_fields is None and
+            specobj_fields is None then the value of fields is used
+        specobj_fields: float, optional
+            SpecObj quantities to return. If photoobj_fields is None and
+            specobj_fields is None then the value of fields is used
 
         Returns
         -------
@@ -633,11 +654,19 @@ class SDSSClass(BaseQuery):
 
         # Construct SQL query
         q_select = 'SELECT DISTINCT '
-        for sql_field in fields:
-            if sql_field in photoobj_defs:
-                q_select += 'p.%s,' % sql_field
-            if sql_field in specobj_defs:
-                q_select += 's.%s,' % sql_field
+        if photoobj_fields is None and specobj_fields is None:
+            for sql_field in fields:
+                if sql_field in photoobj_defs:
+                    q_select += 'p.%s,' % sql_field
+                if sql_field in specobj_defs:
+                    q_select += 's.%s,' % sql_field
+        else:
+            if photoobj_fields is not None:
+                for sql_field in photoobj_fields:
+                    q_select += 'p.%s,' % sql_field
+            if specobj_fields is not None:
+                for sql_field in photoobj_fields:
+                    q_select += 's.%s,' % sql_field
         q_select = q_select.rstrip(',')
         q_select += ' '
 
@@ -647,18 +676,25 @@ class SDSSClass(BaseQuery):
         else:
             q_join = ''
 
-        q_where = ''
+        q_where = 'WHERE '
         if coordinates is not None:
-            # Query for a region
-            coordinates = commons.parse_coordinates(coordinates)
+            if (not isinstance(coordinates, list) and
+                not (isinstance(coordinates, commons.CoordClasses) and
+                not coordinates.isscalar)
+            ):
+                coordinates = [coordinates]
+            for n, target in enumerate(coordinates):
+                # Query for a region
+                target = commons.parse_coordinates(target).transform_to('fk5')
 
-            ra = coordinates.ra.degree
-            dec = coordinates.dec.degree
-            dr = coord.Angle(radius).to('degree').value
-
-            q_where = ('WHERE (p.ra between %g and %g) and '
-                       '(p.dec between %g and %g)'
-                       % (ra-dr, ra+dr, dec-dr, dec+dr))
+                ra = target.ra.degree
+                dec = target.dec.degree
+                dr = coord.Angle(radius).to('degree').value
+                if n > 0:
+                    q_where += ' or '
+                q_where += ('((p.ra between %g and %g) and '
+                           '(p.dec between %g and %g))'
+                           % (ra - dr, ra + dr, dec - dr, dec + dr))
         elif spectro:
             # Spectra: query for specified plate, mjd, fiberid
             s_fields = ['s.%s=%d' % (key, val) for (key, val) in

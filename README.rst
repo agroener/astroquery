@@ -19,39 +19,28 @@ website <http://simbad.u-strasbg.fr/simbad/>`_, use the ``simbad`` sub-package:
     ------------- ------------- ------------- ... -------- -------------- -------------------
     * tet01 Ori C 05 35 16.4637 -05 23 22.848 ...        A              O 2007A&A...474..653V
         
-Installation and Requirements    
+Installation and Requirements
 -----------------------------
 
-
-As an `astropy`_ affiliate, astroquery requires `astropy`_.  However, because
-astroquery relies heavily upon the ``astropy.coordinates`` module, the
-development version of `astropy`_ is required. `astropy`_ can be installed from
-pip:
-
-.. code-block:: bash
-
-    $ pip install git+http://github.com/astropy/astropy.git#egg=astropy
+Astroquery works with Python 2.7 and 3.3 or later.
+As an `astropy`_ affiliate, astroquery requires `astropy`_ version 0.4 or later.
 
 astroquery uses the `requests <http://docs.python-requests.org/en/latest/>`_
-module to communicate with the internet.  `requests`_ can also be installed with
-pip.
+module to communicate with the internet.  `BeautifulSoup
+<http://www.crummy.com/software/BeautifulSoup/>`_ is needed for HTML parsing
+for some services.  The `keyring <https://pypi.python.org/pypi/keyring>`_
+module is also required for accessing services that require a login.
+These can all be installed using `pip <https://pypi.python.org/pypi/pip>`_.
 
-The `first beta release`_ of astroquery can be downloaded or pip installed:
+The `latest release`_ of astroquery can be downloaded or pip installed:
 
 .. code-block:: bash
 
    $ pip install astroquery 
    
 
-Or if pypi is down:   
-   
-.. code-block:: bash
-   
-   $ pip install https://github.com/astropy/astroquery/archive/v0.1.tar.gz
-
-
 If you'd like the latest development version, you can install it with the
-following commands:
+following commands if you have ``git`` installed:
 
 .. code-block:: bash
 
@@ -67,6 +56,7 @@ pip install also works:
     
 Using astroquery
 ----------------
+
 Importing astroquery on its own doesn't get you much: you need to import each
 sub-module specifically.  Check out the `docs`_
 to find a list of the tools available.  The `API`_ 
@@ -98,8 +88,7 @@ List of Modules
   * `SHA <http://astroquery.readthedocs.org/en/latest/sha/sha.html>`_:                 Spitzer Heritage Archive; infrared data products from the Spitzer Space Telescope
   * `Lamda <http://astroquery.readthedocs.org/en/latest/lamda/lamda.html>`_:             Leiden Atomic and Molecular Database; energy levels, radiative transitions, and collisional rates for astrophysically relevant atoms and molecules.
   * `Ogle <http://astroquery.readthedocs.org/en/latest/ogle/ogle.html>`_:               Optical Gravitational Lensing Experiment III; information on interstellar extinction towards the Galactic bulge.
-  * `Splatalogue
-    <http://astroquery.readthedocs.org/en/latest/splatalogue/splatalogue.html>`_:   National Radio Astronomy Observatory (NRAO)-maintained (mostly) molecular radio and millimeter line list service.
+  * `Splatalogue <http://astroquery.readthedocs.org/en/latest/splatalogue/splatalogue.html>`_: National Radio Astronomy Observatory (NRAO)-maintained (mostly) molecular radio and millimeter line list service.
   * `CosmoSim <http://astroquery.readthedocs.org/en/latest/cosmosim/cosmosim.html>`_: The CosmoSim database provides results from cosmological simulations performed within different projects: the MultiDark project, the BolshoiP project, and the CLUES project.
   * `ESO Archive <http://astroquery.readthedocs.org/en/latest/eso/eso.html>`_
   * `GAMA database <http://astroquery.readthedocs.org/en/latest/gama/gama.html>`_
@@ -145,7 +134,7 @@ Badges
 .. _View on Github: https://github.com/astropy/astroquery/
 .. _docs: http://astroquery.readthedocs.org
 .. _Documentation: http://astroquery.readthedocs.org
-.. _first beta release: https://github.com/astropy/astroquery/tarball/v0.1
+.. _latest release: https://github.com/astropy/astroquery/tarball/v0.2
 .. _astropy.astroquery@gmail.com: mailto:astropy.astroquery@gmail.com
 .. _Adam Ginsburg: http://www.adamgginsburg.com
 .. _Blog: http://astropy.org/astroquery-blog

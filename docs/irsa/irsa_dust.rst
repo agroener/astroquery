@@ -9,7 +9,7 @@ IRSA Dust Extinction Service Queries (`astroquery.irsa_dust`)
 Getting started
 ===============
 
-This module can be used to query IRSA dust extinction service.
+This module can be used to query the `IRSA Dust Extinction Service`_.
 
 Fetch images
 ------------
@@ -51,7 +51,7 @@ images:
     >>> from astroquery.irsa_dust import IrsaDust
     >>> import astropy.units as u
     >>> image = IrsaDust.get_images("m81", image_type="100um",
-    ...                             radius=20*u.arcmin)
+    ...                             radius=2*u.deg)
 
     Downloading http://irsa.ipac.caltech.edu//workspace/TMP_007Vob_24557/DUST/m81.v0001/p414i100.fits
     |===========================================| 149k/149k (100.00%)        02s
@@ -70,9 +70,8 @@ The image types that are available can also be listed out any time:
 
     ['ebv', 'temperature', '100um']
 
-Rather than specifying the name, the target may also be specified via
-coordinates passed as strings. Examples of acceptable coordinate strings, can
-be found on this `IRSA Dust Extinction Service page`_.            
+The target may also be specified via coordinates passed as strings. Examples of acceptable coordinate
+strings can be found on this `IRSA DUST coordinates description page`_.            
 
 .. code-block:: python
 
@@ -97,7 +96,10 @@ supports the ``image_type`` argument, in the same way as described for
 .. code-block:: python
 
     >>> from astroquery.irsa_dust import IrsaDust
-    >>> image_urls = IrsaDust.get_image_list("34.5565 54.2321 gal")
+    >>> import astropy.coordinates as coord
+    >>> import astropy.units as u
+    >>> C = coord.SkyCoord(34.5565*u.deg, 54.2321*u.deg, frame='galactic')
+    >>> image_urls = IrsaDust.get_image_list(C)
     >>> image_urls
 
     ['http://irsa.ipac.caltech.edu//workspace/TMP_gB3awn_6492/DUST/34.5565_54.2321_gal.v0001/p292Dust.fits',
@@ -114,7 +116,11 @@ value:
 .. code-block:: python
 
     >>> from astroquery.irsa_dust import IrsaDust
-    >>> table = IrsaDust.get_extinction_table("22h57m57.5s +26d09m00.09s Equatorial B1950")
+    >>> import astropy.coordinates as coord
+    >>> import astropy.units as u
+    >>> # "22h57m57.5s +26d09m00.09s Equatorial B1950"
+    >>> C = coord.SkyCoord("22h57m57.5s +26d09m00.09s", frame='fk4')
+    >>> table = IrsaDust.get_extinction_table(C)
  
     Downloading http://irsa.ipac.caltech.edu//workspace/TMP_UkhZqQ_9824/DUST/22h57m57.5s_+26d09m00.09s_Equatorial_B1950.v0001/extinction.tbl
     |===========================================| 1.3k/1.3k (100.00%)        00s
@@ -176,4 +182,5 @@ Reference/API
 .. automodapi:: astroquery.irsa_dust
     :no-inheritance-diagram:
 
-.. _IRSA Dust Extinction Service page: http://irsa.ipac.caltech.edu/applications/DUST/docs/coordinate.html
+.. _IRSA Dust Extinction Service: http://irsa.ipac.caltech.edu/applications/DUST/index.html
+.. _IRSA DUST coordinates description page: http://irsa.ipac.caltech.edu/applications/DUST/docs/coordinate.html

@@ -18,25 +18,21 @@ import astropy.utils.data as aud
 # Astroquery imports
 from ..utils import commons
 from ..query import QueryWithLogin
-from . import COSMOSIM_SERVER, COSMOSIM_TIMEOUT
-
-import ipdb
+from . import conf
 
 __all__ = ['CosmoSim']
 
 class CosmoSim(QueryWithLogin):
-    
-    QUERY_URL = COSMOSIM_SERVER()
-    SCHEMA_URL = 'http://www.cosmosim.org/query/account/databases/json'
-    TIMEOUT = COSMOSIM_TIMEOUT()
 
-    cosmosim_databases = ('MDR1','MDPL','Bolshoi','BolshoiP')
+    QUERY_URL = conf.query_url
+    SCHEMA_URL = conf.schema_url
+    TIMEOUT = conf.timeout
 
     def __init__(self):
         super(CosmoSim, self).__init__()
         self.session = requests.session()
  
-    def _login(self, username):
+    def _login(self, username, password=None):
         
         self.session = requests.session()
         self.username = username
@@ -44,7 +40,17 @@ class CosmoSim(QueryWithLogin):
         # Get password from keyring or prompt
         password_from_keyring = keyring.get_password("astroquery:www.cosmosim.org", self.username)
         if password_from_keyring is None:
-            self.password = getpass.getpass("{0}, enter your CosmoSim password:\n".format(self.username))
+            logging.warning("No password was found in the keychain for the provided username.")
+
+            # Check if running from scipt or interactive python session
+            import __main__ as main
+            # For script
+            if hasattr(main,'__file__'):
+                assert password is not None, "No password provided."
+                self.password = password
+            # For interactive session
+            else:
+                self.password = getpass.getpass("{0}, enter your CosmoSim password:\n".format(self.username))
         else:
             self.password = password_from_keyring
             
@@ -70,8 +76,13 @@ class CosmoSim(QueryWithLogin):
         
         return authenticated
 
+    def logout(self):
+        del self.session
+        del self.username
+        del self.password
 
-    def run_sql_query(self, query_string,tablename=None):
+
+    def run_sql_query(self, query_string,tablename=None,queue=None):
         """
         Public function which sends a POST request containing the sql query string.
 
@@ -90,22 +101,25 @@ class CosmoSim(QueryWithLogin):
         
         self._existing_tables()
 
+        if not queue:
+            queue = 'short'
+
         if tablename in self.table_dict.values():
-            result = self.session.post(CosmoSim.QUERY_URL,auth=(self.username,self.password),data={'query':query_string,'phase':'run'})
+            result = self.session.post(CosmoSim.QUERY_URL,auth=(self.username,self.password),data={'query':query_string,'phase':'run','queue':queue})
             soup = BeautifulSoup(result.content)
             gen_tablename = str(soup.find(id="table").string)
             logging.warning("Table name {} is already taken.".format(tablename))
             print("Generated table name: {}".format(gen_tablename))
         elif tablename is None:
-            result = self.session.post(CosmoSim.QUERY_URL,auth=(self.username,self.password),data={'query':query_string,'phase':'run'})
+            result = self.session.post(CosmoSim.QUERY_URL,auth=(self.username,self.password),data={'query':query_string,'phase':'run','queue':queue})
         else:
-            result = self.session.post(CosmoSim.QUERY_URL,auth=(self.username,self.password),data={'query':query_string,'table':'{}'.format(tablename),'phase':'run'})
+            result = self.session.post(CosmoSim.QUERY_URL,auth=(self.username,self.password),data={'query':query_string,'table':'{}'.format(tablename),'phase':'run','queue':queue})
         
         soup = BeautifulSoup(result.content)
         self.current_job = str(soup.find("uws:jobid").string)
         print("Job created: {}".format(self.current_job))
         self._existing_tables()
-        return result
+        return self.current_job
         
     def _existing_tables(self):
         """
@@ -202,16 +216,21 @@ class CosmoSim(QueryWithLogin):
             completed_jobids = [key for key in self.job_dict.keys() if self.job_dict[key] == 'COMPLETED']
             response_list = [self.session.get(CosmoSim.QUERY_URL+"/{}".format(completed_jobids[i]),auth=(self.username,self.password)) for i in range(len(completed_jobids))]
         else:
-            response_list = [self.session.get(CosmoSim.QUERY_URL+"/{}".format(jobid),auth=(self.username,self.password))]
+            if self.job_dict[jobid] == 'COMPLETED':
+                response_list = [self.session.get(CosmoSim.QUERY_URL+"/{}".format(jobid),auth=(self.username,self.password))]
+            else:
+                logging.warning("JobID must refer to a query with a phase of 'COMPLETED'.")
 
-        if output is True:
+
+        if output:
             for i in response_list:
                 print(i.content)
         else:
             print(response_list)
-            
-        return response_list
 
+        return response_list
+        
+        
     def delete_job(self,jobid=None,squash=None):
         """
         A public function which deletes a stored job from the server in any phase. If no jobid is given, it attemps to use the most recent job (if it exists in this session). If jobid is specified, then it deletes the corresponding job, and if it happens to match the existing current job, that variable gets deleted.
@@ -280,7 +299,7 @@ class CosmoSim(QueryWithLogin):
         Internal function which builds a schema of all simulations within the database (in the form of a dictionary).
         """
 
-        response = requests.get(CosmoSim.SCHEMA_URL,
+        response = self.session.get(CosmoSim.SCHEMA_URL,
                                 auth=(self.username,self.password),
                                 headers = {'Accept': 'application/json'})
         data = response.json()
